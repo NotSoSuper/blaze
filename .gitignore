@@ -1,0 +1,9 @@
+dist/
+
+# dependency manager
+node_modules/
+yarn.lock
+yarn-error.log
+
+# application
+.env

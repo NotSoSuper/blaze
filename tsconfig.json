@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "module": "commonjs",
+    "lib": ["es5", "es6", "es2017"],
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "experimentalDecorators": true,
+    "allowJs": true,
+    "outDir": "dist/build",
+    "rootDir": "src/",
+    "emitDecoratorMetadata": true
+  },
+  "include": ["src"],
+  "exclude": []
+}
