@@ -4,13 +4,8 @@ Dotenv.config({
     path: '.env',
 });
 
-import * as ErrorHandler from 'errorhandler';
 import App from './App';
 
-App.use(ErrorHandler());
-
-const server = App.listen(App.get('port'), () => {
-    console.log(`Server running on port ${App.get('port')}`);
-});
-
-export default server;
+const port = process.env.PORT || 15001;
+App.listen(port);
+console.log(`Running on port ${port}`);

@@ -1,26 +1,32 @@
-const Compression = require('compression');
-const Express = require('express');
-import { Response } from 'express';
+import * as http from 'http';
 import Water, { Method } from 'water';
-import ChunkBodyMiddleware from './Middleware/ChunkBodyMiddleware';
 
 const water = new Water({
     token: process.env.DISCORD_TOKEN as string,
 });
 
-const app = Express();
-app.set('port', process.env.PORT || 15001);
-app.use(ChunkBodyMiddleware);
-app.use(Compression());
+const app = http.createServer((req, res) => {
+    if (!req.method) {
+        res.statusCode = 400;
 
-app.all('*', async (req: any, res: Response) => {
-    if (!['delete', 'get', 'patch', 'post', 'put'].includes(req.method.toLowerCase())) {
-        return res.status(405).send(`Method not allowed. ${req.method.toLowerCase()}`);
+        return res.end('No method given.');
     }
 
-    let bucket = req.originalUrl;
+    if (!req.url) {
+        res.statusCode = 400;
 
-    const parts = req.originalUrl.split('/');
+        return res.end('No url.');
+    }
+
+    if (!['delete', 'get', 'patch', 'post', 'put'].includes(req.method.toLowerCase())) {
+        res.statusCode = 405;
+
+        return res.end('Method not allowed.');
+    }
+
+    let bucket = req.url;
+
+    const parts = req.url.split('/');
 
     if (parts.length > 3) {
         const start = parts.slice(0, 3).join('/');
@@ -29,44 +35,56 @@ app.all('*', async (req: any, res: Response) => {
         bucket = `${start}/${end}`;
     }
 
-    water.request(
-        req.method as Method,
-        bucket,
-        req.originalUrl,
-        req.rawBody,
-        true,
-    ).then(([resp, data]) => {
-        if (resp.statusCode) {
-            res.status(resp.statusCode);
-        }
+    let body = '';
 
-        const headers = [
-            'content-type',
-            'retry-after',
-            'set-cookie',
-            'x-ratelimit-global',
-            'x-ratelimit-limit',
-            'x-ratelimit-remaining',
-            'x-ratelimit-reset',
-            'via',
-            'cf-ray',
-        ];
+    req.setEncoding('utf8');
 
-        for (let header of headers) {
-            const value = resp.headers[header];
+    req.on('data', (chunk: Buffer) => {
+        body += chunk;
+    });
 
-            if (value) {
-                res.setHeader(header, value);
+    req.on('end', () => {
+        const requestBody = body.length > 0 ? body : null;
+
+        water.request(
+            req.method as Method,
+            bucket,
+            req.url as string,
+            requestBody,
+            true,
+        ).then(([response, data]) => {
+            if (response.statusCode) {
+                res.statusCode = response.statusCode;
             }
-        }
 
-        res.removeHeader('x-powered-by');
+            const headers = [
+                'content-type',
+                'retry-after',
+                'set-cookie',
+                'x-ratelimit-global',
+                'x-ratelimit-limit',
+                'x-ratelimit-remaining',
+                'x-ratelimit-reset',
+                'via',
+                'cf-ray',
+            ];
 
-        res.send(data);
+            for (let header of headers) {
+                const value = response.headers[header];
 
-        return res;
-    }).catch(err => {
-        return res.status(500).send(err.toString());
+                if (value) {
+                    res.setHeader(header, value);
+                }
+            }
+
+            res.removeHeader('x-powered-by');
+
+            res.end(data);
+        }).catch(err => {
+            res.statusCode = 500;
+
+            res.end(err.toString());
+        });
     });
 });
 
